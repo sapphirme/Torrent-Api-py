@@ -1,6 +1,7 @@
 aiohttp[speedups]
 beautifulsoup4
 cloudscraper
+curl-cffi
 fastapi==0.104.1
 gunicorn
 mangum

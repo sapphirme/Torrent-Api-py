@@ -8,7 +8,7 @@ router = APIRouter(tags=["Get all sites"])
 @router.get("/")
 @router.get("")
 async def get_all_supported_sites():
-    all_sites = check_if_site_available("1337x")
+    all_sites = check_if_site_available("torrentfunk") or {}
     sites_list = [site for site in all_sites.keys() if all_sites[site]["website"]]
     return error_handler(
         status_code=status.HTTP_200_OK,
