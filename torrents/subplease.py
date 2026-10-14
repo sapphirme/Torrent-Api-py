@@ -132,6 +132,7 @@ class SubPlease:
                     results.append(
                         {
                             "name": name,
+                            "episode": release.get("episode"),
                             "size": int(size) if size and size.isdigit() else None,
                             "seeders": None,
                             "leechers": None,
@@ -257,6 +258,51 @@ class SubPlease:
             "titles": titles,
             "synonyms": media.get("synonyms", []),
         }
+        results["time"] = time.time() - started
+        return results
+
+    @staticmethod
+    def _matches_episode(item, episode):
+        episode_value = str(item.get("episode") or "")
+        episode_match = re.match(r"\s*0*(\d+)", episode_value)
+        if episode_match:
+            return int(episode_match.group(1)) == episode
+
+        name = item.get("name") or ""
+        patterns = (
+            rf"\bS\d{{1,2}}E0*{episode}(?!\d)\b",
+            rf"\b(?:episode|ep)\s*0*{episode}(?!\d)\b",
+            rf"\s-\s*0*{episode}(?=\s*(?:\(|\[|$))",
+        )
+        return any(re.search(pattern, name, re.IGNORECASE) for pattern in patterns)
+
+    async def episode(
+        self,
+        episode,
+        query=None,
+        slug=None,
+        anilist_id=None,
+        page=1,
+        limit=20,
+    ):
+        started = time.time()
+        if slug:
+            source = await self.show_by_slug(slug, page=1, limit=50)
+        elif anilist_id is not None:
+            source = await self.search_anilist(anilist_id, page=1, limit=50)
+        elif query and query.strip():
+            source = await self.search(query, page=1, limit=50)
+        else:
+            return None
+
+        if source is None:
+            return None
+        matches = [
+            item for item in source["data"] if self._matches_episode(item, episode)
+        ]
+        results = self._page_results(matches, page, limit)
+        if "show" in source:
+            results["show"] = source["show"]
         results["time"] = time.time() - started
         return results
 

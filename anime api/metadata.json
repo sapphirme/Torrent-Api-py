@@ -1,0 +1,6 @@
+{
+  "name": "Chanime Scraper API Tester",
+  "description": "Test and verify anime and light novel scrapers, real covers, chapter reader, and API endpoints.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

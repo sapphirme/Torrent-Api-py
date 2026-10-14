@@ -75,6 +75,35 @@ async def subplease_show_by_anilist_id(
     return _response(results, "anilist", page, limit)
 
 
+@router.get("/episode")
+async def subplease_episode(
+    episode: int = Query(..., ge=1, description="Episode number"),
+    q: Optional[str] = Query(None, description="Anime title"),
+    slug: Optional[str] = Query(None, description="SubsPlease show slug"),
+    anilist_id: Optional[int] = Query(None, description="AniList anime ID"),
+    limit: int = 20,
+    page: int = 1,
+):
+    limit = min(max(limit, 1), 50)
+    page = max(page, 1)
+    selectors = [bool(q), bool(slug), anilist_id is not None]
+    if sum(selectors) != 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide exactly one of q, slug, or anilist_id",
+        )
+
+    results = await SubPlease().episode(
+        episode=episode,
+        query=q,
+        slug=slug,
+        anilist_id=anilist_id,
+        page=page,
+        limit=limit,
+    )
+    return _response(results, "episode", page, limit)
+
+
 @router.get("")
 @router.get("/")
 @router.get("/latest")

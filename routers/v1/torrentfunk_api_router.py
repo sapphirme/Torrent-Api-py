@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional
 
 from curl_cffi import requests
@@ -8,6 +9,37 @@ from torrents.torrentfunk import filter_torrentfunk_results
 router = APIRouter(tags=["TorrentFunk JSON API"])
 
 BASE_URL = "https://www.torrentfunk.com"
+
+
+def _fetch_tmdb(path: str):
+    tmdb_key = os.getenv("TMDB_API_KEY")
+    if not tmdb_key:
+        raise HTTPException(status_code=503, detail="TMDB_API_KEY is not configured")
+    try:
+        response = requests.get(
+            f"https://api.themoviedb.org/3{path}",
+            params={"api_key": tmdb_key},
+            timeout=20,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="TMDB request failed") from exc
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="TMDB item was not found")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="TMDB lookup failed")
+    return response.json()
+
+
+def _matches_series_episode(name: str, season: int, episode: int):
+    patterns = [
+        rf"\bS0*{season}\s*[-._ ]?\s*E0*{episode}(?!\d)(?!-\s*0*\d+)",
+        rf"\bSeason\s+0*{season}\s+(?:Episode|Ep)\s+0*{episode}(?!\d)(?!-\s*0*\d+)",
+    ]
+    if season == 1:
+        patterns.append(
+            rf"\s-\s*0*{episode}(?!-\s*0*\d+)(?=\s*(?:\(|\[|$))"
+        )
+    return any(re.search(pattern, name, re.IGNORECASE) for pattern in patterns)
 
 
 def _fetch_json(endpoint: str, params: dict):
@@ -107,6 +139,60 @@ async def torrentfunk_search(
             "title": tmdb_movie.get("title"),
             "release_date": tmdb_movie.get("release_date"),
         }
+    return results
+
+
+@router.get("/episode")
+async def torrentfunk_episode(
+    tmdb_id: int = Query(..., ge=1, description="TMDB TV series ID"),
+    season: int = Query(..., ge=1, description="Season number"),
+    episode: int = Query(..., ge=1, description="Episode number"),
+    max_size_gb: float = Query(1.5, ge=1.0, le=1.5),
+    limit: int = 20,
+    page: int = 1,
+):
+    series = _fetch_tmdb(f"/tv/{tmdb_id}")
+    tmdb_episode = _fetch_tmdb(
+        f"/tv/{tmdb_id}/season/{season}/episode/{episode}"
+    )
+    series_title = series.get("name") or series.get("original_name")
+    if not series_title:
+        raise HTTPException(status_code=502, detail="TMDB series has no title")
+
+    episode_code = f"S{season:02d}E{episode:02d}"
+    episode_title = tmdb_episode.get("name")
+    query = f"{series_title} {episode_code} {episode_title or ''}".strip()
+    params = {
+        "q": query,
+        "sort": "seeds",
+        "order": "desc",
+        "limit": 100,
+        "page": 1,
+        "category": "television",
+    }
+    results = _fetch_json("/api/search.json", params)
+    if not isinstance(results, dict) or not isinstance(results.get("results"), list):
+        return results
+
+    max_size_bytes = max_size_gb * 1024**3
+    matches = [
+        item
+        for item in results["results"]
+        if item.get("size_bytes", max_size_bytes) < max_size_bytes
+        and _matches_series_episode(item.get("name") or "", season, episode)
+    ]
+    page_size = min(max(limit, 1), 100)
+    start = (max(page, 1) - 1) * page_size
+    results["results"] = matches[start : start + page_size]
+    results["count"] = len(results["results"])
+    results["total_found"] = len(matches)
+    results["tmdb"] = {
+        "id": tmdb_id,
+        "title": series_title,
+        "season": season,
+        "episode": episode,
+        "episode_title": episode_title,
+    }
     return results
 
 

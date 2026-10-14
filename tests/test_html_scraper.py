@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from helper.html_scraper import Scraper
 from torrents.torrentfunk import TorrentFunk
+from routers.v1.torrentfunk_api_router import _matches_series_episode
 
 
 class FakeResponse:
@@ -107,6 +108,20 @@ class HtmlScraperJsonTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [item["name"] for item in parsed["data"]],
             ["Film (2024) [Eng Sub]", "Film (2024) [English Subtitles]"],
+        )
+
+    def test_series_episode_match_requires_requested_season_and_episode(self):
+        self.assertTrue(
+            _matches_series_episode("Example Show S02E03 480p Eng Sub", 2, 3)
+        )
+        self.assertFalse(
+            _matches_series_episode("Example Show S02E13 480p Eng Sub", 2, 3)
+        )
+        self.assertFalse(
+            _matches_series_episode("Example Show S01E03 480p Eng Sub", 2, 3)
+        )
+        self.assertFalse(
+            _matches_series_episode("Example Show S02E03-04 480p Eng Sub", 2, 3)
         )
 
 

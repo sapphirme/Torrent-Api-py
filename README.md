@@ -12,10 +12,12 @@ This build currently supports:
 ## Features
 
 - `GET /api/v1/torrentfunk/search` for TorrentFunk search queries
+- `GET /api/v1/torrentfunk/episode` for a TMDB-identified TV episode
 - `GET /api/v1/torrentfunk/latest` for newest TorrentFunk results
 - `GET /api/v1/subplease/search` for anime search by title, slug, or AniList ID
 - `GET /api/v1/subplease/shows/{slug}` to fetch releases for a SubsPlease show slug
 - `GET /api/v1/subplease/anilist/{anilist_id}` to resolve AniList IDs to releases
+- `GET /api/v1/subplease/episode` to fetch one episode by title, slug, or AniList ID
 - `GET /api/v1/subplease/latest` for recent SubsPlease uploads
 - `GET /api/v1/sites` and `GET /api/v1/sites/config` for supported-site metadata
 
@@ -103,6 +105,20 @@ Provide exactly one of `q` or `tmdb_id`. Set `TMDB_API_KEY` to the TMDB key prov
 
 TorrentFunk search and latest results are filtered to releases strictly below 2 GB whose names explicitly contain an English-subtitle marker, such as `Eng Sub` or `English Subtitles`. Results without a detectable marker are excluded because TorrentFunk does not expose structured subtitle-language metadata.
 
+#### Fetch a specific TV episode
+
+Use the TMDB TV series ID, season, and episode. The endpoint resolves the episode title with TMDB, searches TorrentFunk for the matching season/episode, and returns English-subbed results strictly below 1.5 GB by default. Set `max_size_gb=1` for a stricter 1 GB cap.
+
+```bash
+# TMDB series ID 1396, season 1, episode 1; default cap is under 1.5 GB
+curl -H "X-API-Key: your-secret-key" \\
+  "http://localhost:8009/api/v1/torrentfunk/episode?tmdb_id=1396&season=1&episode=1"
+
+# Restrict results to under 1 GB
+curl -H "X-API-Key: your-secret-key" \\
+  "http://localhost:8009/api/v1/torrentfunk/episode?tmdb_id=1396&season=1&episode=1&max_size_gb=1"
+```
+
 #### Latest
 
 ```bash
@@ -131,6 +147,24 @@ curl -H "X-API-Key: your-secret-key" \
 ```bash
 curl -H "X-API-Key: your-secret-key" \
   "http://localhost:8009/api/v1/subplease/anilist/178788?limit=2"
+```
+
+#### Fetch a particular episode
+
+Choose exactly one anime identifier (`q`, `slug`, or `anilist_id`) and provide the episode number:
+
+```bash
+# By SubsPlease show slug
+curl -H "X-API-Key: your-secret-key" \\
+  "http://localhost:8009/api/v1/subplease/episode?slug=kimetsu-no-yaiba-movie-1-mugenjou-hen-akaza-sairai&episode=2"
+
+# By AniList ID
+curl -H "X-API-Key: your-secret-key" \\
+  "http://localhost:8009/api/v1/subplease/episode?anilist_id=178788&episode=2"
+
+# By anime title
+curl -H "X-API-Key: your-secret-key" \\
+  "http://localhost:8009/api/v1/subplease/episode?q=Dark%20Summoner&episode=2"
 ```
 
 #### Recent uploads
@@ -229,6 +263,18 @@ For SubsPlease responses, the payload may also include a `show` object when reso
 - SubsPlease searches rely on its RSS feed plus its public show data and AniList lookups.
 - SubsPlease results are filtered to 480p-quality releases in the current implementation.
 - Use `slug` or `anilist_id` when you want a deterministic match for a show.
+
+## Web torrent player
+
+The extracted player is in `magnet/torrent-player/player`. Run the FastAPI service on port 8009, then start the player in a second terminal:
+
+```bash
+cd magnet/torrent-player/player
+npm install
+npm start
+```
+
+Open http://localhost:3000. Search for an anime or anime movie above the video, then select **Play** to load a SubsPlease 480p release. The search is backed by SubsPlease, so it does not provide general non-anime movie results. If FastAPI requires an API key, set `SUBPLEASE_API_KEY` (or `PYTORRENT_API_KEY`) in the player environment. Set `SUBPLEASE_API_URL` to override the default FastAPI search URL.
 
 ## License
 

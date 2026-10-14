@@ -123,6 +123,42 @@ class SubPleaseFeedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(results["total"], 1)
         self.assertEqual(search_site.call_count, 3)
 
+    async def test_episode_lookup_matches_exact_episode_number(self):
+        releases = {
+            "data": [
+                {"name": "[SubsPlease] Example Anime - 02 (480p).mkv"},
+                {"name": "[SubsPlease] Example Anime - 12 (480p).mkv"},
+            ],
+            "total": 2,
+            "show": {"title": "Example Anime"},
+        }
+        with patch.object(SubPlease, "show_by_slug", return_value=releases):
+            results = await SubPlease().episode(2, slug="example-anime")
+
+        self.assertEqual(results["total"], 1)
+        self.assertEqual(results["data"][0]["name"], releases["data"][0]["name"])
+        self.assertEqual(results["show"]["title"], "Example Anime")
+
+    def test_episode_metadata_is_preserved_from_site_api(self):
+        payload = {
+            "episode": {
+                "Example Anime - 02": {
+                    "show": "Example Anime",
+                    "episode": "02",
+                    "downloads": [
+                        {
+                            "res": "480",
+                            "magnet": "magnet:?xt=urn:btih:ABC123&dn=Example+Anime+02+%28480p%29",
+                        }
+                    ],
+                }
+            }
+        }
+
+        results = SubPlease._parse_site_releases(payload)
+
+        self.assertEqual(results[0]["episode"], "02")
+
 
 if __name__ == "__main__":
     unittest.main()

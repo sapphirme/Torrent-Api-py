@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torrent Player</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#050505">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<script src="/kv-cache-kt.js" defer></script>
+<script src="/native-bridge.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<style>
+  :root { --bg:#050505; --glass:rgba(255,255,255,.06); --line:rgba(255,255,255,.12); --text:#f2f2f2; --dim:#9a9a9a; --ok:#7ee0a1; --bad:#ff7a7a; --r:20px; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; color:var(--text); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%,#2a2a2a 0%,transparent 60%),radial-gradient(900px 500px at 110% 10%,#1d1d1d 0%,transparent 55%),var(--bg); }
+  main { max-width:960px; margin:0 auto; padding:28px 16px 60px; }
+  h1 { font-size:22px; margin:0 0 18px; letter-spacing:.3px; }
+  .card { background:var(--glass); border:1px solid var(--line); border-radius:var(--r); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  input[type=text] { flex:1 1 280px; min-width:0; padding:12px 16px; border-radius:999px; border:1px solid var(--line); background:rgba(0,0,0,.35); color:var(--text); outline:none; }
+  input[type=text]:focus { border-color:rgba(255,255,255,.35); }
+  button { padding:12px 18px; border-radius:999px; border:1px solid var(--line); background:linear-gradient(180deg,#fff,#cfcfcf); color:#000; font-weight:600; cursor:pointer; }
+  button.ghost { background:var(--glass); color:var(--text); font-weight:500; }
+  button:disabled { opacity:.5; cursor:default; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .chip { padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.07); border:1px solid var(--line); font-size:13px; cursor:pointer; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .files { display:grid; gap:8px; margin-top:12px; }
+  .file { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:14px; background:rgba(0,0,0,.3); border:1px solid var(--line); cursor:pointer; }
+  .file:hover { border-color:rgba(255,255,255,.3); }
+  .file.off { opacity:.4; cursor:default; }
+  .file .n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--dim); white-space:nowrap; }
+  .tag.ok { color:var(--ok); border-color:rgba(126,224,161,.4); }
+  video { width:100%; border-radius:var(--r); background:#000; aspect-ratio:16/9; display:block; }
+  #status { margin-top:12px; color:var(--dim); font-size:13px; min-height:20px; }
+  #status.err { color:var(--bad); white-space:pre-wrap; }
+  .bar { height:6px; border-radius:99px; background:rgba(255,255,255,.1); overflow:hidden; margin-top:8px; }
+  .bar > i { display:block; height:100%; width:0; background:linear-gradient(90deg,#777,#fff); transition:width .4s; }
+  .foot { display:flex; justify-content:space-between; align-items:center; gap:10px; color:var(--dim); font-size:13px; flex-wrap:wrap; }
+  .hide { display:none; }
+  .search-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+  .search-heading h2 { font-size:16px; margin:0; }
+  #animeStatus { min-height:20px; margin-top:10px; color:var(--dim); font-size:13px; }
+  #animeStatus.err { color:var(--bad); }
+  .anime-result { display:flex; align-items:center; gap:12px; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:rgba(0,0,0,.3); }
+  .anime-result .n { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .anime-result button { flex:0 0 auto; padding:8px 12px; border-radius:10px; }
+  @media (max-width:560px) { .anime-result { align-items:flex-start; flex-wrap:wrap; } .anime-result .n { flex-basis:100%; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Torrent Player</h1>
+
+  <div class="card">
+    <div class="row">
+      <input id="magnet" type="text" placeholder="Paste a magnet link (or 40-char info hash)" autocomplete="off">
+      <button id="load">Load</button>
+      <button id="loadFile" class="ghost" title="Open a .torrent file from your device">Load .torrent</button>
+      <input id="tfile" type="file" accept=".torrent,application/x-bittorrent" hidden>
+      <button id="sintel" class="ghost" title="Open-licensed test film">Try Sintel</button>
+    </div>
+    <div id="recent" class="chips"></div>
+    <div id="title" class="hide" style="margin-top:14px;font-weight:600"></div>
+    <div id="files" class="files"></div>
+  </div>
+
+  <section class="card" aria-labelledby="animeSearchTitle">
+    <div class="search-heading"><h2 id="animeSearchTitle">Anime and anime movies</h2></div>
+    <form id="animeSearchForm" class="row">
+      <input id="animeSearch" type="text" placeholder="Search title" aria-label="Search anime or anime movie" autocomplete="off" required>
+      <button id="animeSearchButton" type="submit">Search</button>
+    </form>
+    <div id="animeStatus" aria-live="polite"></div>
+    <div id="animeResults" class="files" aria-live="polite"></div>
+  </section>
+
+  <div class="card">
+    <video id="v" controls playsinline crossorigin="anonymous"></video>
+    <div id="status">Load a torrent, then pick a file.</div>
+    <div class="bar"><i id="bar"></i></div>
+  </div>
+
+  <div id="offlineCard" class="card hide">
+    <div style="font-weight:600;margin-bottom:8px">Saved offline (on this phone)</div>
+    <div id="offlineList" class="files"></div>
+  </div>
+
+  <div class="card foot">
+    <span id="cache">Server cache: …</span>
+    <button id="clear" class="ghost">Clear server cache</button>
+  </div>
+
+  <div class="card foot">
+    <span id="device">Device cache: starting…</span>
+    <span class="row">
+      <button data-kv-install class="ghost" hidden>Add to Home Screen</button>
+      <button id="clearDevice" class="ghost">Clear device cache</button>
+    </span>
+  </div>
+
+  <div class="card foot">
+    <label style="cursor:pointer"><input type="checkbox" id="saveWhile"> Save to device while watching <span style="opacity:.7">(optional)</span></label>
+    <span id="saveStatus" class="tag hide"></span>
+  </div>
+</main>
+
+<script>
+const SINTEL = 'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com';
+const $ = (id) => document.getElementById(id);
+const video = $('v'), statusEl = $('status'), bar = $('bar');
+let current = null;      // { infoHash, magnet, index }
+let hls = null, pollTimer = null, saveTimer = null, subsAdded = false;
+
+const fmtBytes = (n) => n > 1e9 ? (n / 1e9).toFixed(2) + ' GB' : (n / 1e6).toFixed(0) + ' MB';
+const fmtTime = (s) => { s = Math.floor(s); const m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, '0')}`; };
+const api = async (url, body) => {
+  const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const setStatus = (t, err) => { statusEl.textContent = t; statusEl.className = err ? 'err' : ''; };
+
+async function refreshRecent() {
+  const list = await api('/api/recent').catch(() => []);
+  const box = $('recent'); box.innerHTML = '';
+  for (const r of list) {
+    const c = document.createElement('span');
+    c.className = 'chip'; c.textContent = r.name; c.title = r.name;
+    c.onclick = () => { $('magnet').value = r.infoHash; loadTorrent(); };
+    box.appendChild(c);
+  }
+}
+async function refreshCache() {
+  const c = await api('/api/cache').catch(() => null);
+  if (c) $('cache').textContent = `Server cache: ${fmtBytes(c.usedBytes)} of ${fmtBytes(c.maxBytes)} · ${c.entries} item(s)`;
+}
+
+async function loadTorrent(magnetInput = $('magnet').value.trim(), playFirst = false) {
+  const magnet = magnetInput.trim();
+  if (!magnet) return;
+  $('magnet').value = magnet;
+  $('load').disabled = true;
+  setStatus('Fetching torrent info… (up to 60s for a new torrent)');
+  try {
+    const t = await api('/api/torrent', { magnet });
+    renderFiles(t);
+    setStatus(t.fromCache ? 'Loaded from cache. Pick a file.' : 'Pick a file to play.');
+    refreshRecent();
+    if (playFirst) {
+      const firstPlayable = t.files.find((file) => file.playable);
+      if (firstPlayable) play(t, firstPlayable);
+      else setStatus('This release has no playable video file.', true);
+    }
+  } catch (e) { setStatus(e.message, true); }
+  $('load').disabled = false;
+}
+
+async function searchAnime(event) {
+  event.preventDefault();
+  const query = $('animeSearch').value.trim();
+  if (!query) return;
+  const button = $('animeSearchButton');
+  const status = $('animeStatus');
+  const results = $('animeResults');
+  button.disabled = true;
+  status.className = '';
+  status.textContent = 'Searching…';
+  results.replaceChildren();
+  try {
+    const payload = await api(`/api/subplease/search?q=${encodeURIComponent(query)}&limit=12`);
+    const releases = payload.results || [];
+    if (!releases.length) {
+      status.textContent = 'No 480p releases found.';
+      return;
+    }
+    status.textContent = `${releases.length} release${releases.length === 1 ? '' : 's'}`;
+    for (const release of releases) {
+      const row = document.createElement('div');
+      row.className = 'anime-result';
+      const name = document.createElement('span');
+      name.className = 'n';
+      name.textContent = release.name;
+      name.title = release.name;
+      const size = document.createElement('span');
+      size.className = 'tag';
+      size.textContent = release.size ? fmtBytes(release.size) : '480p';
+      const select = document.createElement('button');
+      select.type = 'button';
+      select.textContent = 'Play';
+      select.setAttribute('aria-label', `Play ${release.name}`);
+      select.onclick = () => {
+        status.textContent = 'Loading release…';
+        loadTorrent(release.magnet, true);
+      };
+      row.append(name, size, select);
+      results.appendChild(row);
+    }
+  } catch (error) {
+    status.className = 'err';
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderFiles(t) {
+  $('title').textContent = t.name; $('title').classList.remove('hide');
+  const box = $('files'); box.innerHTML = '';
+  for (const f of t.files) {
+    const d = document.createElement('div');
+    d.className = 'file' + (f.playable ? '' : ' off');
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = f.name; n.title = f.name;
+    d.appendChild(n);
+    const add = (txt, cls) => { const s = document.createElement('span'); s.className = 'tag ' + (cls || ''); s.textContent = txt; d.appendChild(s); };
+    add(fmtBytes(f.length));
+    if (f.cached) add('cached', 'ok');
+    if (f.resume > 10) add('resume ' + fmtTime(f.resume));
+    if (window.KVNative && f.cached) {
+      const b = document.createElement('button'); b.className = 'ghost'; b.style.padding = '4px 12px'; b.textContent = 'Save offline';
+      b.onclick = (ev) => { ev.stopPropagation(); KVOffline.download(t, f); b.textContent = 'Saving…'; };
+      d.appendChild(b);
+    }
+    if (f.playable) d.onclick = () => play(t, f);
+    box.appendChild(d);
+  }
+}
+
+async function play(t, f) {
+  stopSaver();
+  clearInterval(pollTimer); clearInterval(saveTimer);
+  if (hls) { hls.destroy(); hls = null; }
+  video.removeAttribute('src'); [...video.querySelectorAll('track')].forEach((x) => x.remove());
+  subsAdded = false; bar.style.width = '0';
+  current = { infoHash: t.infoHash, magnet: t.magnet, index: f.index, resume: f.resume };
+  setStatus('Starting…');
+  try {
+    const r = await api('/api/play', { infoHash: t.infoHash, magnet: t.magnet, index: f.index });
+    let attached = false;
+    const tick = async () => {
+      const s = await api(`/api/status/${t.infoHash}/${f.index}`);
+      if (s.state === 'failed') { clearInterval(pollTimer); return setStatus('Failed: ' + s.error, true); }
+      const net = s.net ? ` · ${(s.net.progress * 100).toFixed(0)}% downloaded · ${s.net.peers} peers · ${(s.net.speed / 1e6).toFixed(2)} MB/s` : '';
+      if (s.net) bar.style.width = (s.net.progress * 100) + '%'; else if (s.state === 'done') bar.style.width = '100%';
+      const label = { probing: 'Reading file info', running: s.mode === 'transcode' ? 'Transcoding' : 'Remuxing', done: 'Ready (cached)', idle: 'Waiting' }[s.state] || s.state;
+      if (!attached && s.ready) { attached = true; attach(r.playlist); }
+      setStatus(attached ? `${label}${net}` : `${label}… waiting for first segments${net}`);
+      if (s.state === 'done') {
+        clearInterval(pollTimer);
+        if (s.hasSubs && !subsAdded) addSubs();
+      }
+    };
+    await tick();
+    pollTimer = setInterval(() => tick().catch((e) => setStatus(e.message, true)), 2000);
+  } catch (e) { setStatus(e.message, true); }
+}
+
+function attach(url) {
+  lastUrl = url; startSaver(url);
+  const resumeAt = current.resume > 10 ? current.resume : 0;
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({ startPosition: resumeAt, maxBufferLength: 60, manifestLoadingMaxRetry: 6 });
+    hls.loadSource(url); hls.attachMedia(video);
+    hls.on(Hls.Events.ERROR, (_e, d) => {
+      if (!d.fatal) return;
+      if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+      else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+    });
+  } else {
+    video.src = url;
+    if (resumeAt) video.addEventListener('loadedmetadata', () => (video.currentTime = resumeAt), { once: true });
+  }
+  video.play().catch(() => {});
+  saveTimer = setInterval(saveProgress, 5000);
+}
+
+function addSubs() {
+  subsAdded = true;
+  const tr = document.createElement('track');
+  tr.kind = 'subtitles'; tr.label = 'Subtitles'; tr.default = true;
+  tr.src = `/hls/${current.infoHash}/${current.index}/subs.vtt`;
+  video.appendChild(tr);
+  tr.addEventListener('load', () => (tr.track.mode = 'showing'));
+  tr.track.mode = 'showing';
+}
+
+function saveProgress() {
+  if (!current || !video.currentTime || video.paused) return;
+  api('/api/progress', { infoHash: current.infoHash, index: current.index, t: video.currentTime }).catch(() => {});
+}
+window.addEventListener('pagehide', () => {
+  if (current && video.currentTime > 0)
+    navigator.sendBeacon('/api/progress', new Blob([JSON.stringify({ infoHash: current.infoHash, index: current.index, t: video.currentTime })], { type: 'application/json' }));
+});
+
+$('load').onclick = loadTorrent;
+$('magnet').addEventListener('keydown', (e) => e.key === 'Enter' && loadTorrent());
+$('animeSearchForm').addEventListener('submit', searchAnime);
+$('loadFile').onclick = () => $('tfile').click();
+$('tfile').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  setStatus('Reading torrent file…');
+  try {
+    const r = await fetch('/api/torrent-file', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: f });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    $('magnet').value = '';
+    renderFiles(j); setStatus('Loaded ' + f.name + '. Pick a file to play.'); refreshRecent();
+  } catch (err) { setStatus(err.message, true); }
+};
+$('sintel').onclick = () => { $('magnet').value = SINTEL; loadTorrent(); };
+$('clear').onclick = async () => { await api('/api/cache/clear', {}); refreshCache(); setStatus('Cache cleared.'); };
+setInterval(refreshCache, 10000);
+refreshRecent(); refreshCache();
+
+// Android app only: list of offline downloads
+window.addEventListener('load', () => {
+  if (!window.KVOffline) return;
+  $('offlineCard').classList.remove('hide');
+  const draw = () => {
+    const box = $('offlineList'); box.innerHTML = '';
+    const items = KVOffline.list();
+    if (!items.length) { box.textContent = 'Nothing saved yet.'; return; }
+    for (const it of items) {
+      const d = document.createElement('div'); d.className = 'file';
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = it.title || it.id; d.appendChild(n);
+      const tag = document.createElement('span'); tag.className = 'tag' + (it.state === 'done' ? ' ok' : '');
+      tag.textContent = it.state === 'done' ? 'ready' : it.state + ' ' + Math.round(it.percent) + '%'; d.appendChild(tag);
+      if (it.state === 'done') { const p = document.createElement('button'); p.textContent = 'Play'; p.onclick = () => KVOffline.play(it.id); d.appendChild(p); }
+      const x = document.createElement('button'); x.className = 'ghost'; x.textContent = 'Delete'; x.onclick = () => { KVOffline.remove(it.id); setTimeout(draw, 300); }; d.appendChild(x);
+      box.appendChild(d);
+    }
+  };
+  draw(); setInterval(draw, 2000);
+});
+
+// optional: save the whole episode to the device while watching (uses the service worker cache)
+let saver = null, lastUrl = null;
+const saveBox = $('saveWhile');
+try { saveBox.checked = localStorage.getItem('kvSaveWhile') === '1'; } catch {}
+function stopSaver() { if (saver) saver.stop(); saver = null; $('saveStatus').classList.add('hide'); }
+function startSaver(url) {
+  stopSaver();
+  if (!saveBox.checked || !window.KVCache || !KVCache.prefetch) return;
+  const why = { full: 'device cache full (install the app for more space)', network: 'network problem',
+    'no-service-worker': 'reload the page once, then try again', incomplete: 'episode not finished on the server yet' };
+  const el = $('saveStatus'); el.classList.remove('hide');
+  saver = KVCache.prefetch(url, (p) => {
+    el.className = 'tag' + (p.complete ? ' ok' : '');
+    el.textContent = p.complete ? 'Saved to device' : p.reason ? 'Stopped: ' + (why[p.reason] || p.reason) : `Saving to device ${p.done}/${p.total}`;
+  });
+}
+saveBox.onchange = () => {
+  try { localStorage.setItem('kvSaveWhile', saveBox.checked ? '1' : '0'); } catch {}
+  if (saveBox.checked && lastUrl) startSaver(lastUrl); else stopSaver();
+};
+
+// device cache (service worker): small in a browser tab, large + persistent once installed
+$('clearDevice').onclick = () => window.KVCache && KVCache.clear();
+window.addEventListener('load', () => {
+  if (!window.KVCache) return;
+  KVCache.on((s) => {
+    if (!s.supported) { $('device').textContent = 'Device cache: not supported in this browser'; return; }
+    const mode = s.installed ? (s.persisted ? 'installed, protected from eviction' : 'installed') : 'browser tab (small cache)';
+    $('device').textContent = `Device cache: ${fmtBytes(s.bytes)} of ${fmtBytes(s.budget)} · ${s.episodes} episode(s) · ${mode}`;
+  });
+  KVCache.init().catch((e) => console.warn('KVCache', e));
+});
+</script>
+</body>
+</html>
