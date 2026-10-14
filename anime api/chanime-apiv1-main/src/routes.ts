@@ -36,7 +36,6 @@ import { getMiruroEpisodes, getMiruroServers, getMiruroEmbedUrl } from './scrape
 import { findAnikotoSlug, getAnikotoEpisodes, getAnikotoServers, getAnikotoEmbedUrl } from './scrapers/anikoto';
 import { searchOtakuvid, findOtakuvidId, getOtakuvidEpisodes, getOtakuvidServers, getOtakuvidStream } from './scrapers/otakuvid';
 import { searchLunarx, findLunarxId, getLunarxEpisodes, getLunarxServers, getLunarxStream } from './scrapers/lunarx';
-import { searchYumezone, findYumezoneId, getYumezoneEpisodes, getYumezoneServers, getYumezoneStream } from './scrapers/yumezone';
 import { searchAnimePahe, findAnimePaheSlug, getAnimePaheEpisodes, getAnimePaheServers, getAnimePaheStream } from './scrapers/animepahe';
 import {
   searchAnidb,
@@ -63,7 +62,7 @@ import { searchAniWaves, findAniWavesSlug, getWaveEpisodes, getWaveServers, getA
 
 const router = Router();
 
-const SOURCES = ['senshi', 'animeheaven', 'miruro', 'anikoto', 'otakuvid', 'lunarx', 'yumezone', 'animepahe', 'animepaheNg', 'anidbapp', 'anidb', 'animesalt', '1embed', 'animegg', 'anineko', 'animenosub', 'aniwaves'] as const;
+const SOURCES = ['senshi', 'animeheaven', 'miruro', 'anikoto', 'otakuvid', 'lunarx', 'animepahe', 'animepaheNg', 'anidbapp', 'anidb', 'animesalt', '1embed', 'animegg', 'anineko', 'animenosub', 'aniwaves'] as const;
 type Source = typeof SOURCES[number];
 
 const MEDIA_FIELDS = `
@@ -311,11 +310,6 @@ async function fetchEpisodes(source: Source, siteIds: any, overrides: { heavenId
     }
     if (!lunarxId) return { episodes: [], siteId: '', error: 'Not indexed on LunarX' };
     return { episodes: await getLunarxEpisodes(lunarxId), siteId: lunarxId };
-  }
-  if (source === 'yumezone') {
-    const yumezoneId = overrides.heavenId || siteIds.siteIds?.yumezone || (siteIds.anilistId ? String(siteIds.anilistId) : null) || await findYumezoneId(siteIds.title || '');
-    if (!yumezoneId) return { episodes: [], siteId: '', error: 'Not indexed on YumeZone' };
-    return { episodes: await getYumezoneEpisodes(yumezoneId), siteId: yumezoneId };
   }
   if (source === 'animepahe' || source === 'animepaheNg') {
     const domain = source === 'animepaheNg' ? 'animepahe.ng' : 'animepahe.ch';
@@ -754,17 +748,6 @@ router.get('/search/otakuvid', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/search/yumezone', async (req: Request, res: Response) => {
-  const query = (req.query.q || req.query.query || '') as string;
-  if (!query) return res.status(400).json({ error: 'Missing ?q=' });
-  try {
-    const results = await searchYumezone(query);
-    return res.json({ provider: 'yumezone', query, count: results.length, results });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message || String(e) });
-  }
-});
-
 router.get('/search/animepahe', async (req: Request, res: Response) => {
   const query = (req.query.q || req.query.query || '') as string;
   const domain = (req.query.domain as string) || 'animepahe.ch';
@@ -1140,7 +1123,6 @@ router.get('/servers', async (req: Request, res: Response) => {
     if (source === 'anikoto') allServers = await getAnikotoServers(episode.id);
     if (source === 'otakuvid') allServers = await getOtakuvidServers(episode.id);
     if (source === 'lunarx') allServers = await getLunarxServers(episode.id);
-    if (source === 'yumezone') allServers = await getYumezoneServers(episode.id);
     if (source === 'animepahe') allServers = await getAnimePaheServers(episode.id, 'animepahe.ch');
     if (source === 'animepaheNg') allServers = await getAnimePaheServers(episode.id, 'animepahe.ng');
     if (source === 'anidbapp' || source === 'anidb') allServers = await getAnidbServers(episode.id);
@@ -1229,7 +1211,6 @@ async function watchHandler(req: Request, res: Response) {
     if (source === 'anikoto') allServers = await getAnikotoServers(episode.id);
     if (source === 'otakuvid') allServers = await getOtakuvidServers(episode.id);
     if (source === 'lunarx') allServers = await getLunarxServers(episode.id);
-    if (source === 'yumezone') allServers = await getYumezoneServers(episode.id);
     if (source === 'animepahe') allServers = await getAnimePaheServers(episode.id, 'animepahe.ch');
     if (source === 'animepaheNg') allServers = await getAnimePaheServers(episode.id, 'animepahe.ng');
     if (source === 'anidbapp' || source === 'anidb') allServers = await getAnidbServers(episode.id);
@@ -1273,7 +1254,6 @@ async function watchHandler(req: Request, res: Response) {
       if (source === 'anikoto') raw = await getAnikotoEmbedUrl(server.sourceId);
       if (source === 'otakuvid') raw = await getOtakuvidStream(server.sourceId);
       if (source === 'lunarx') raw = await getLunarxStream(server.sourceId);
-      if (source === 'yumezone') raw = await getYumezoneStream(server.sourceId);
       if (source === 'animepahe' || source === 'animepaheNg') raw = await getAnimePaheStream(server.sourceId);
       if (source === 'anidbapp' || source === 'anidb') raw = await getAnidbStream(server.sourceId);
       if (source === 'animesalt') raw = await resolveAnimeSaltWatch(server.sourceId, { language: req.query.language as string || '', type: type as 'sub' | 'dub' | 'all', server: req.query.server as string || '' }).catch(() => null);
@@ -1304,44 +1284,6 @@ async function watchHandler(req: Request, res: Response) {
     if (!embedResult) {
       const msg = strict && preferredServer ? `Server "${preferredServer}" failed to resolve a stream` : 'All servers failed';
       return res.status(502).json({ error: msg, triedServers: candidates.map((s: any) => s.name) });
-    }
-
-    if (source === 'yumezone') {
-      const isHls = embedResult.type === 'hls' || Boolean(embedResult.m3u8) || (embedResult.streamUrl && embedResult.streamUrl.includes('/p/'));
-      const directM3u8 = embedResult.m3u8 || (isHls ? embedResult.streamUrl : null);
-      const hlsProxy = directM3u8 ? proxiedHlsUrl(req, directM3u8, embedResult.referer || 'https://yumezone.live/') : null;
-
-      return res.json({
-        anilistId: siteIds.anilistId,
-        malId: siteIds.malId,
-        title: siteIds.title,
-        episode: epNum,
-        type,
-        source,
-        siteId: epResult.siteId,
-        server: usedServer,
-        availableServers: filtered.map((s: any) => s.name),
-        embedUrl: embedResult.embedUrl,
-        streamUrl: embedResult.streamUrl,
-        m3u8: directM3u8,
-        hlsProxyUrl: hlsProxy,
-        playbackMode: 'hls',
-        iframeOnly: false,
-        subtitles: (embedResult.subtitles || []).map((sub: any) => ({
-          ...sub,
-          proxyUrl: sub.url ? proxiedSubtitleUrl(req, sub.url, embedResult.referer || 'https://yumezone.live/') : undefined,
-        })),
-        intro: embedResult.intro,
-        outro: embedResult.outro,
-        provider: embedResult.provider || 'YumeZone',
-        directWatchLinks: (embedResult.directWatchLinks || []).map((link: any) => ({
-          quality: link.quality,
-          url: link.url,
-          type: link.type,
-          proxyUrl: proxiedHlsUrl(req, link.url, embedResult.referer || 'https://yumezone.live/'),
-        })),
-        note: 'YumeZone provides high-speed 1080p HLS playback with dynamic client cipher authentication.',
-      });
     }
 
     if (source === 'lunarx') {

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -207,7 +208,6 @@ async function startServer() {
       pathname === '/terms.html' ||
       pathname === '/landing' ||
       pathname === '/landing.html' ||
-      pathname === '/yumezone_watch.html' ||
       pathname.startsWith('/css/') ||
       pathname.startsWith('/js/') ||
       pathname.startsWith('/assets/') ||

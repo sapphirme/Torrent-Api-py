@@ -39,7 +39,6 @@ export interface SiteIds {
     anikoto?: string;
     otakuvid?: string;
     lunarx?: string;
-    yumezone?: string;
     animepahe?: string;
     animepaheNg?: string;
     anidbapp?: string;
@@ -232,7 +231,6 @@ export async function getSiteIds(anilistId: number): Promise<SiteIds | null> {
     title: alInfo.title,
     titles,
     siteIds: {
-      yumezone: String(anilistId),
     },
   };
 

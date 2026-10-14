@@ -65,20 +65,7 @@ async function testOtakuvid() {
   }
 }
 
-// 6. Test Yumezone (yumezone.live)
-async function testYumezone() {
-  console.log('\n--- 6. Yumezone (yumezone.live) ---');
-  try {
-    const res = await axios.get('https://yumezone.live/filter?keyword=solo+leveling', {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    console.log('Yumezone search status:', res.status, 'HTML len:', res.data.length);
-  } catch(e) {
-    console.log('Yumezone search error:', e.message);
-  }
-}
-
-// 7. Test Senshi (senshi.live)
+// 6. Test Senshi (senshi.live)
 async function testSenshi() {
   console.log('\n--- 7. Senshi (senshi.live) ---');
   try {
@@ -110,7 +97,6 @@ async function runAll() {
   await testAnimeSalt();
   await testAniDao();
   await testOtakuvid();
-  await testYumezone();
   await testSenshi();
   await testAnimeHeaven();
 }

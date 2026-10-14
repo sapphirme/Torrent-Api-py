@@ -89,7 +89,6 @@ watch_provider miruro
 watch_provider anikoto
 watch_provider otakuvid
 watch_provider lunarx
-watch_provider yumezone
 watch_provider animepahe
 watch_provider animepaheNg
 watch_provider anidbapp
@@ -112,7 +111,6 @@ The supported `source` values are:
 | Anikoto | `anikoto` | `/api/watch?source=anikoto&anilistId=21&ep=1&type=sub` |
 | Otakuvid | `otakuvid` | `/api/watch?source=otakuvid&anilistId=21&ep=1&type=sub` |
 | LunarX | `lunarx` | `/api/watch?source=lunarx&anilistId=21&ep=1&type=sub` |
-| YumeZone | `yumezone` | `/api/watch?source=yumezone&anilistId=21&ep=1&type=sub` |
 | AnimePahe | `animepahe` | `/api/watch?source=animepahe&anilistId=21&ep=1&type=sub` |
 | AnimePahe NG | `animepaheNg` | `/api/watch?source=animepaheNg&anilistId=21&ep=1&type=sub` |
 | AniDB.app | `anidbapp` | `/api/watch?source=anidbapp&anilistId=21&ep=1&type=sub` |
