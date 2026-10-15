@@ -1,0 +1,8 @@
+.git
+.gitignore
+tests/
+README.md
+FRONTEND_AI_PROMPT.md
+vercel.json
+__pycache__/
+*.pyc

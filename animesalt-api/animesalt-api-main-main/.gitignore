@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.vercel/
+*.log
+animesalt-api.zip
+extract.js
+extract.py
+test_ajax.py
+verify_extract.py
+.vercel
+.env*.local
